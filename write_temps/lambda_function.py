@@ -36,7 +36,7 @@ def lambda_handler(event, context):
 
                     dt_str = dt_obj.isoformat()
 
-                    key_name = 'temperature+{}+{}'.format(one_entry['sensor_name'].upper(), dt_obj.date().strftime('%Y%m%d'))
+                    key_name = 'temperature+{}+{}'.format(one_entry['sensor_name'].upper(), dt_obj.date().strftime('%Y%m'))
                     ddb.put_item(TableName='dataTable', Item={
                         'key_name': {"S": key_name},
                         'timestamp': {"S": dt_str },
