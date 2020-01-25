@@ -9,14 +9,14 @@ def lambda_handler(event, context):
     location = event['pathParameters']['location'].upper()
     dt_str = event['pathParameters']['date_str']
     if dt_str.lower() == 'today':
-        dt_str = datetime.datetime.utcnow().strftime('%Y%m%d')
+        dt_str = datetime.datetime.utcnow().strftime('%Y%m')
 
     extra_args = {}
 
     try:
         extra_args['Limit'] = int(event['queryStringParameters']['limit'])
     except:
-        pass  # no limit arg
+        extra_args['Limit'] = 1
 
     one_res = ddb.query(TableName='dataTable', KeyConditionExpression="key_name = :k_name",
                         ExpressionAttributeValues={':k_name': {'S': 'temperature+{}+{}'.format(location, dt_str)}},
