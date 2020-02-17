@@ -1,0 +1,13 @@
+arrow==0.15.4
+boto3==1.10.28
+certifi==2019.9.11
+chardet==3.0.4
+cryptography==2.8
+docutils==0.15.2
+future==0.18.2
+idna==2.8
+jmespath==0.9.4
+pycparser==2.19
+requests==2.22.0
+s3transfer==0.2.1
+six==1.13.0
