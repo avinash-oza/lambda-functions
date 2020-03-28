@@ -2,6 +2,7 @@ import json
 
 import arrow
 import boto3
+import pandas as pd
 
 ddb = boto3.client('dynamodb')
 
@@ -22,6 +23,8 @@ def dt_to_query_keys(dt):
 def lambda_handler(event, context):
     location = event['pathParameters']['location'].upper()
     dt_str = event['pathParameters']['date_str']
+    resample_freq = event['queryStringParameters'].get('freq') if event['queryStringParameters'] is not None else None
+
     if dt_str.lower() == 'today':
         dt = arrow.get()
     else:
@@ -40,11 +43,21 @@ def lambda_handler(event, context):
                                                    ':et': {'S': ed}},
                         ExpressionAttributeNames={'#ts': 'timestamp'},
                         ScanIndexForward=False, **extra_args)
+
     result_list = []
-    for r in one_res['Items']:
-        result_list.append({'timestamp': r['timestamp']['S'],
-                            'value': r['reading_value']['N']
-                            })
+    if resample_freq:
+        df = pd.DataFrame([(a['timestamp']['S'], a['reading_value']['N']) for a in one_res['Items']], columns=['timestamp', 'value']).set_index('timestamp')
+        df.loc[:, 'value'] = df['value'].astype(float)
+        df.index = pd.to_datetime(df.index)
+        df  = df.resample(resample_freq).last()
+
+        df.index = df.index.map(lambda x: x.isoformat())
+        result_list.extend(df.sort_index(ascending=False).reset_index().to_dict(orient='records'))
+    else:
+        for r in one_res['Items']:
+            result_list.append({'timestamp': r['timestamp']['S'],
+                                'value': r['reading_value']['N']
+                                })
 
     return {
         'statusCode': 200,
@@ -53,6 +66,8 @@ def lambda_handler(event, context):
 
 # if __name__ == '__main__':
 #     import pprint
-#     evt = {'pathParameters': {'location': 'outdoor', 'date_str': '20200212'}}
-#     # evt = {'pathParameters': {'location': 'outdoor', 'date_str': 'today'}}
-#     pprint.pprint(lambda_handler(evt, None))
+#     evt = {'pathParameters': {'location': 'outdoor', 'date_str': 'today', },
+#            'queryStringParameters': {'freq': 'H'}}
+    # evt = {'pathParameters': {'location': 'outdoor', 'date_str': 'today'}}
+    # pprint.pprint(lambda_handler(evt, None))
+#
