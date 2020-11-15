@@ -55,7 +55,7 @@ def _format_query_results(results, resample_freq):
     return result_list
 
 
-def get_data_for_range(event, _):
+def _get_data_for_range(event, _):
     location = event['pathParameters']['location'].upper()
     ed_str = event['queryStringParameters']['ed_str']
     sd_str = event['queryStringParameters']['sd_str']
@@ -82,7 +82,7 @@ def get_data_for_range(event, _):
     }
 
 
-def get_data_for_date(event, _):
+def _get_data_for_date(event, _):
     location = event['pathParameters']['location'].upper()
     dt_str = event['pathParameters']['date_str']
     resample_freq = event['queryStringParameters'].get('freq') if event['queryStringParameters'] is not None else None
@@ -107,12 +107,25 @@ def get_data_for_date(event, _):
     }
 
 
+def route_request(event, _):
+    request_map = {
+        'SINGLE': _get_data_for_date,
+        'TS': _get_data_for_range
+    }
+    try:
+        request_type = event['pathParameters'].get('request_type', 'SINGLE').upper()
+        return request_map[request_type](event, None)
+    except KeyError:
+        return {
+            'statusCode': 400,
+            'body': 'UNKNOWN REQUEST'
+        }
+
 # if __name__ == '__main__':
 #     import pprint
 #
-#     evt = {'pathParameters': {'location': 'outdoor', 'date_str': 'today', },
-#            'queryStringParameters': {'freq': 'H'}}
-#     evt = {'pathParameters': {'location': 'outdoor', 'sd_str': '20201020', 'ed_str': '20201105'},
-#            'queryStringParameters': {'freq': 'D'}}
-    # pprint.pprint(lambda_handler(evt, None))
-    # pprint.pprint(get_data_for_range(evt, None))
+# evt = {'pathParameters': {'location': 'outdoor', 'date_str': 'today', 'request_type': 'SINGLE'},
+#        'queryStringParameters': {'freq': 'H'}}
+# evt = {'pathParameters': {'location': 'outdoor', 'request_type': 'AAA'},
+#        'queryStringParameters': {'freq': 'D', 'sd_str': '20201020', 'ed_str': '20201105'}}
+# pprint.pprint(route_request(evt, None))
