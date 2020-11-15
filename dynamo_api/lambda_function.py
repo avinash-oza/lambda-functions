@@ -57,8 +57,8 @@ def _format_query_results(results, resample_freq):
 
 def get_data_for_range(event, _):
     location = event['pathParameters']['location'].upper()
-    ed_str = event['pathParameters']['ed_str']
-    sd_str = event['pathParameters']['sd_str']
+    ed_str = event['queryStringParameters']['ed_str']
+    sd_str = event['queryStringParameters']['sd_str']
     resample_freq = event['queryStringParameters'].get('freq') if event['queryStringParameters'] is not None else None
 
     partition_ranges = defaultdict(list)  # partition to list of query params
