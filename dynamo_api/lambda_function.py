@@ -21,7 +21,7 @@ def _dt_to_query_keys(dt):
     return dt_partition, dt_start, dt_end
 
 
-def _query_for_dt(location, partition, sd, ed):
+def _query_for_dt(location, partition, sd, ed, extra_args):
     query_results = []
     one_res = ddb.query(TableName='dataTable',
                         KeyConditionExpression="key_name = :k_name AND #ts BETWEEN :st AND :et",
@@ -30,7 +30,7 @@ def _query_for_dt(location, partition, sd, ed):
                             ':st': {'S': sd},
                             ':et': {'S': ed}},
                         ExpressionAttributeNames={'#ts': 'timestamp'},
-                        ScanIndexForward=False)
+                        ScanIndexForward=False, **extra_args)
     if one_res['Items']:
         query_results.extend(one_res['Items'])
     return query_results
@@ -72,7 +72,7 @@ def _get_data_for_range(event, _):
     for part_range, params in partition_ranges.items():
         for one_params in params:
             sd, ed = one_params
-            query_results.extend(_query_for_dt(location, part_range, sd, ed))
+            query_results.extend(_query_for_dt(location, part_range, sd, ed, extra_args={}))
 
     result_list = _format_query_results(query_results, resample_freq)
 
@@ -84,7 +84,7 @@ def _get_data_for_range(event, _):
 
 def _get_data_for_date(event, _):
     location = event['pathParameters']['location'].upper()
-    dt_str = event['pathParameters']['date_str']
+    dt_str = event['pathParameters']['request_type']
     resample_freq = event['queryStringParameters'].get('freq') if event['queryStringParameters'] is not None else None
 
     if dt_str.lower() == 'today':
@@ -99,7 +99,7 @@ def _get_data_for_date(event, _):
     except:
         pass
 
-    result_list = _format_query_results(_query_for_dt(location, dt_partition, sd, ed), resample_freq)
+    result_list = _format_query_results(_query_for_dt(location, dt_partition, sd, ed, extra_args), resample_freq)
 
     return {
         'statusCode': 200,
@@ -108,18 +108,10 @@ def _get_data_for_date(event, _):
 
 
 def route_request(event, _):
-    request_map = {
-        'SINGLE': _get_data_for_date,
-        'TS': _get_data_for_range
-    }
-    try:
-        request_type = event['pathParameters'].get('request_type', 'SINGLE').upper()
-        return request_map[request_type](event, None)
-    except KeyError:
-        return {
-            'statusCode': 400,
-            'body': 'UNKNOWN REQUEST'
-        }
+    request_type = event['pathParameters'].get('request_type', 'SINGLE').upper()
+    if request_type == 'TS':
+        return _get_data_for_range(event, _)
+    return _get_data_for_date(event, _)
 
 # if __name__ == '__main__':
 #     import pprint
