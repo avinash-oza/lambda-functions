@@ -2,57 +2,14 @@ import io
 import logging
 
 import arrow
+import argparse
 import pandas as pd
 import plotly.express as px
 import requests
 from pandas.tseries.frequencies import Day
 
-from telegram_bot.config_util import ConfigHelper
-
-c = ConfigHelper()
 pd.options.plotting.backend = "plotly"
 logger = logging.getLogger(__name__)
-
-
-def get_temperatures(locations='ALL'):
-    if locations == 'ALL':
-        locations = c.get('temperature', 'locations')
-
-    dt_format = '%Y-%m-%d %I:%M:%S %p'
-    current_time = arrow.now().strftime(dt_format)
-
-    s = requests.Session()
-    s.headers.update({'X-Api-Key': c.get('temperature', 'api_key')})
-    url = c.get('temperature', 'url')
-
-    resp_text = f"""Time: {current_time}\n"""
-    for loc in locations:
-        try:
-            resp = s.get(fr'{url}/temperatures/{loc}/today?limit=1')
-            resp.raise_for_status()
-        except requests.exceptions.HTTPError:
-            logger.exception(f"Error when getting {loc}")
-            resp_text += f"{loc}: Exception on getting value\n"
-        else:
-            r = resp.json()
-            logger.info(f"Response is {r}")
-            if 'data' in r and r['data']:
-                data = r['data'][0]
-                value = float(data['value'])
-                ts = arrow.get(data['timestamp']).to('America/New_York').strftime('%m/%d %I:%M:%S %p')
-                resp_text += f"{loc}: {value:.2f}F -> {ts}\n"
-            else:
-                resp_text += f"{loc}: Could not get value\n"
-    return resp_text
-
-
-def get_temperatures_for_locations(sd, ed, locations):
-    df_list = []
-    for loc in locations:
-        one_df = _get_temperatures_for_range(sd, ed, loc)
-        df_list.append(one_df)
-
-    return pd.concat(df_list)
 
 
 def build_temperature_chart(df):
@@ -65,7 +22,7 @@ def build_temperature_chart(df):
     return buf
 
 
-def _get_temperatures_for_range(sd, ed, location):
+def _get_temperatures_for_range(api_key, api_url, sd, ed, location):
     params = {
         'limit': 9999,
         'freq': 'D',
@@ -75,10 +32,9 @@ def _get_temperatures_for_range(sd, ed, location):
 
     result = []
     s = requests.Session()
-    s.headers.update({'X-Api-Key': c.get('temperature', 'api_key')})
-    url = c.get('temperature', 'url')
+    s.headers.update({'X-Api-Key': api_key})
 
-    resp = s.get(fr'{url}/temperatures/{location}/ts', params=params)
+    resp = s.get(fr'{api_url}/temperatures/{location}/ts', params=params)
     r = resp.json()
     if 'data' in r and r['data']:
         result.extend(r['data'])
@@ -91,13 +47,27 @@ def _get_temperatures_for_range(sd, ed, location):
 
 
 if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--lambda-api-key', type=str)
+    parser.add_argument('--lambda-url', type=str)
+    parser.add_argument('--bucket', type=str)
+    parser.add_argument('--file-path', type=str)
+    parser.add_argument('--locations', type=str, nargs='+')
+
+    args = parser.parse_args()
+
     ed = pd.Timestamp.today()
+    sd = ed - Day(7)
 
-    sd = ed - Day(5)
+    df_list = []
+    for loc in args.locations:
+        one_df = _get_temperatures_for_range(args.lambda_api_key,
+                                             args.lambda_url,
+                                             sd, ed, loc)
+        df_list.append(one_df)
 
-    test_df = _get_temperatures_for_range(sd, ed, 'outdoor')
-    test_df2 = _get_temperatures_for_range(sd, ed, 'garage')
-    df_total = pd.concat([test_df, test_df2])
+    df_total = pd.concat(df_list)
 
     data = build_temperature_chart(df_total)
     with open('test.png', 'wb') as f:
