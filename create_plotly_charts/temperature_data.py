@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 class TemperatureData:
 
     @staticmethod
-    def build_temperature_chart(df):
+    def build_temperature_chart(df, as_of_time):
         fig = px.line(df, x='timestamp', y='value', line_group='location', color='location',
-                      title='Temperature')
+                      title=f'Temperature as of {as_of_time.strftime("%Y-%m-%d %H:%m:%S%p")}')
         buf = io.BytesIO()
         fig.write_image(buf, format='png', scale=0.75)
         buf.seek(0)
@@ -81,12 +81,10 @@ if __name__ == '__main__':
     ed = pd.Timestamp.today()
     sd = ed - Day(7)
 
-    # df = TemperatureData.get_temperatures(args.lambda_api_key, args.lambda_url, sd, ed, args.locations)
+    df = TemperatureData.get_temperatures(args.lambda_api_key, args.lambda_url, sd, ed, args.locations)
     # df.to_pickle('sample_data.pkl')
-    df = pd.read_pickle('sample_data.pkl')
+    # df = pd.read_pickle('sample_data.pkl')
 
-    # chart_bytes = TemperatureData.build_temperature_chart(df)
+    chart_bytes = TemperatureData.build_temperature_chart(df, ed)
 
-    # TemperatureData.write_image_to_s3(args.bucket, args.file_path, chart_bytes)
-    # with open('test.png', 'wb') as f:
-    #     f.write(chart_bytes.read())
+    TemperatureData.write_image_to_s3(args.bucket, args.file_path, chart_bytes)
