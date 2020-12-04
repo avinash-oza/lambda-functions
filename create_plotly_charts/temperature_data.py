@@ -47,7 +47,7 @@ class TemperatureData:
     def _get_temperatures_for_range(cls, api_key, api_url, sd, ed, location):
         params = {
             'limit': 9999,
-            'freq': 'D',
+            'freq': '4h',
             'sd_str': sd.strftime('%Y-%m-%d'),
             'ed_str': ed.strftime('%Y-%m-%d') if not isinstance(ed, str) else ed,
         }
