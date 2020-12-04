@@ -17,7 +17,7 @@ class TemperatureData:
     @staticmethod
     def build_temperature_chart(df, as_of_time):
         fig = px.line(df, x='timestamp', y='value', line_group='location', color='location',
-                      title=f'Temperature as of {as_of_time.strftime("%Y-%m-%d %H:%m:%S%p")}')
+                      title=f'Temperature as of {as_of_time.strftime("%Y-%m-%d %H:%M:%S%p")}')
         buf = io.BytesIO()
         fig.write_image(buf, format='png', scale=0.75)
         buf.seek(0)
