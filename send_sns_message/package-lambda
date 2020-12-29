@@ -1,0 +1,13 @@
+#! /bin/bash
+rm ../send-sns-message.zip
+# add packages
+pip install --target ./package -r requirements.txt
+pip install --target ./package .
+
+# add files to package
+cd package
+cp ../lambda_function.py .
+zip -r9 ../send-sns-message.zip .
+cd ../
+# cleanup intermediate
+rm -Rvf package
