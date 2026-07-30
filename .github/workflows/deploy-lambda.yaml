@@ -103,7 +103,7 @@ jobs:
 
       - name: build package for deployment
         run: |
-          cd package && zip -q -r ../${{ steps.init.outputs.package_zip_name }} .
+          cd ${{steps.init.outputs.project}}/package && zip -q -r ../${{ steps.init.outputs.package_zip_name }} .
           zip -q -r ../${{ steps.init.outputs.package_zip_name }} .
           # Upload the updated zip to S3
           aws s3 cp ../${{ steps.init.outputs.package_zip_name }} \
