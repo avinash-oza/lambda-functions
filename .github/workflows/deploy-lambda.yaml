@@ -99,7 +99,7 @@ jobs:
           echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
           # construct env with package in it
-          uv pip install dist/${{steps.init.outputs.project}}-$PACKAGE_VERSION-py3-none-any.whl --target ./package
+          uv pip install dist/$(echo ${{steps.init.outputs.project}} | tr '-' '_')-$PACKAGE_VERSION-py3-none-any.whl --target ./package
 
       - name: build package for deployment
         run: |
