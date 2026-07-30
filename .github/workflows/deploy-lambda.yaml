@@ -92,14 +92,14 @@ jobs:
           enable-cache: true
 
       - run: |
-          cd ${inputs.project}
+          cd ${{steps.init.outputs.project}}
           uv build --wheel
           PACKAGE_VERSION=$(uv version --short)
           echo "Package version is $PACKAGE_VERSION"
           echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
           # construct env with package in it
-          uv pip install dist/telegram_bot-$PACKAGE_VERSION-py3-none-any.whl --target ./package
+          uv pip install dist/${steps.init.outputs.project}-$PACKAGE_VERSION-py3-none-any.whl --target ./package
 
       - name: build package for deployment
         run: |
