@@ -8,7 +8,7 @@ on:
           required: true
           type: choice
           options:
-              - send_sns_message
+              - send-sns-message
 #  push:
 #    branches:
 #      - master
@@ -55,12 +55,12 @@ jobs:
 
           # Map: project -> package zip file name
           declare -A PACKAGE_ZIP_NAME_MAP=(
-            [send_sns_message]="send_sns_message.zip"
+            [send-sns-message]="send-sns-message.zip"
           )
 
           # Map: project -> lambda function name
           declare -A LAMBDA_FUNCTION_NAME_MAP=(
-            [send_sns_message]="sendSNSTelegramMessage"
+            [send-sns-message]="sendSNSTelegramMessage"
           )
 
           S3_BUCKET="${{ secrets.S3_BUCKET_NAME }}"
@@ -99,7 +99,7 @@ jobs:
           echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
           # construct env with package in it
-          uv pip install dist/${steps.init.outputs.project}-$PACKAGE_VERSION-py3-none-any.whl --target ./package
+          uv pip install dist/${{steps.init.outputs.project}}-$PACKAGE_VERSION-py3-none-any.whl --target ./package
 
       - name: build package for deployment
         run: |
