@@ -92,6 +92,7 @@ jobs:
           enable-cache: true
 
       - run: |
+          cd ${inputs.project}
           uv build --wheel
           PACKAGE_VERSION=$(uv version --short)
           echo "Package version is $PACKAGE_VERSION"
