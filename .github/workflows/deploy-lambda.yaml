@@ -1,4 +1,4 @@
-name: Deploy Telegram Bot
+name: Deploy Lambda Function
 
 on:
   workflow_dispatch:
