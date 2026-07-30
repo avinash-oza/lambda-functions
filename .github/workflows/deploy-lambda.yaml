@@ -1,0 +1,120 @@
+name: Deploy Telegram Bot
+
+on:
+  workflow_dispatch:
+      inputs:
+        project:
+          description: Select project
+          required: true
+          type: choice
+          options:
+              - send_sns_message
+#  push:
+#    branches:
+#      - master
+#    paths:
+#       - '**.py'
+
+jobs:
+  release-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup | Checkout Repository on Release Branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Setup | Force release branch to be at workflow sha
+        run: |
+          git reset --hard ${{ github.sha }}
+
+      - name: Action | Semantic Version Release
+        id: release
+        # Adjust tag with desired version if applicable.
+        uses: python-semantic-release/python-semantic-release@v10.5.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          git_committer_name: "github-actions"
+          git_committer_email: "actions@users.noreply.github.com"
+
+#      - name: Get current sha post release
+#        id: current-release-sha
+#        shell: bash
+#        run: |
+#          git pull
+#          CURRENT_SHA=$(git rev-parse HEAD)
+#          echo "current-sha=$CURRENT_SHA"
+#          echo "current-sha=$CURRENT_SHA" >> $GITHUB_OUTPUT
+
+      - name: initialize for deployment
+        id: init
+        shell: bash
+        run: |
+          PROJECT="${{ github.event.inputs.project }}"
+
+          # Map: project -> package zip file name
+          declare -A PACKAGE_ZIP_NAME_MAP=(
+            [send_sns_message]="send_sns_message.zip"
+          )
+
+          # Map: project -> lambda function name
+          declare -A LAMBDA_FUNCTION_NAME_MAP=(
+            [send_sns_message]="sendSNSTelegramMessage"
+          )
+
+          S3_BUCKET="${{ secrets.S3_BUCKET_NAME }}"
+          PACKAGE_ZIP_NAME="${PACKAGE_ZIP_NAME_MAP[$PROJECT]}"
+          LAMBDA_FUNCTION_NAME="${LAMBDA_FUNCTION_NAME_MAP[$PROJECT]}"
+          S3_KEY="packages/$PACKAGE_ZIP_NAME"
+
+          if [[ -z "$PACKAGE_ZIP_NAME" || -z "$LAMBDA_FUNCTION_NAME" ]]; then
+            echo "Project '$PROJECT' is not configured in one or both maps."
+            exit 1
+          fi
+
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+          echo "s3_bucket_name=$S3_BUCKET" >> "$GITHUB_OUTPUT"
+          echo "package_zip_name=$PACKAGE_ZIP_NAME" >> "$GITHUB_OUTPUT"
+          echo "s3_key=$S3_KEY" >> "$GITHUB_OUTPUT"
+          echo "lambda_function_name=$LAMBDA_FUNCTION_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Setup AWS CLI
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: build package with uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - run: |
+          uv build --wheel
+          PACKAGE_VERSION=$(uv version --short)
+          echo "Package version is $PACKAGE_VERSION"
+          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+
+          # construct env with package in it
+          uv pip install dist/telegram_bot-$PACKAGE_VERSION-py3-none-any.whl --target ./package
+
+      - name: build package for deployment
+        run: |
+          cd package && zip -q -r ../${{ steps.init.outputs.package_zip_name }} .
+          zip -q -r ../${{ steps.init.outputs.package_zip_name }} .
+          # Upload the updated zip to S3
+          aws s3 cp ../${{ steps.init.outputs.package_zip_name }} \
+          s3://${{ steps.init.outputs.s3_bucket_name }}/${{ steps.init.outputs.s3_key }}
+
+          echo "Size of package is:"
+          ls -lah ../${{ steps.init.outputs.package_zip_name }}
+
+      - name: deploy lambda function
+        run: |
+          # Update Lambda function code
+          aws lambda update-function-code \
+          --function-name ${{ steps.init.outputs.lambda_function_name }} \
+          --s3-bucket ${{ steps.init.outputs.s3_bucket_name }} \
+          --s3-key ${{ steps.init.outputs.s3_key }} >> /dev/null
